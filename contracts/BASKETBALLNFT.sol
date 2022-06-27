@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+// import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "erc721a/contracts/ERC721A.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract MGTNFT is ERC721, Ownable {
+contract BASKETBALLNFT is ERC721A, Ownable {
     using Strings for uint256;
 
     //  receive ETH
@@ -13,7 +15,7 @@ contract MGTNFT is ERC721, Ownable {
 
     //  WL
     mapping(address => uint8) public whitelist;
-    mapping(address => mapping(uint64 => uint64)) minted;
+    mapping(address => mapping(uint64 => uint256)) minted;
     uint64 public startTime;
     uint64 public endTime = type(uint64).max;
     uint64 public slot = type(uint8).max;
@@ -21,8 +23,7 @@ contract MGTNFT is ERC721, Ownable {
     uint256 public price;
 
     uint64 public immutable maxSupply = 1800;
-    uint64 public saleAmount;
-    uint64 public totalSupply;
+    uint256 public saleAmount;
 
     // reveal
     string private baseURI;
@@ -36,7 +37,7 @@ contract MGTNFT is ERC721, Ownable {
         string memory _symbol,
         address _project,
         address _copyright
-    ) ERC721(_name, _symbol) {
+    ) ERC721A(_name, _symbol) {
         project = _project;
         copyright = _copyright;
     }
@@ -70,7 +71,7 @@ contract MGTNFT is ERC721, Ownable {
         uint64 _startTime,
         uint64 _endTime,
         uint256 _price,
-        uint64 amount,
+        uint256 amount,
         uint64 _amountPerUser
     ) public onlyOwner {
         require(_slot != 0, "_slot can not be zero");
@@ -78,7 +79,7 @@ contract MGTNFT is ERC721, Ownable {
         startTime = _startTime;
         endTime = _endTime;
         price = _price;
-        saleAmount = totalSupply + amount;
+        saleAmount = totalSupply() + amount;
         amountPerUser = _amountPerUser;
     }
 
@@ -88,9 +89,9 @@ contract MGTNFT is ERC721, Ownable {
         }
     }
 
-    function mint(uint64 amount) external payable callerIsUser {
+    function mint(uint256 amount) external payable callerIsUser {
         require(whitelist[msg.sender] == slot, "Can not mint");
-        require(totalSupply + amount <= saleAmount, "Sold out");
+        require(totalSupply() + amount <= saleAmount, "Sold out");
         require(
             block.timestamp <= endTime && block.timestamp >= startTime,
             "Wrong time"
@@ -99,9 +100,7 @@ contract MGTNFT is ERC721, Ownable {
         require(minted[msg.sender][slot] + amount <= amountPerUser, "Exceed");
 
         minted[msg.sender][slot] += amount;
-        for (uint64 i = 0; i < amount; i++) {
-            _safeMint(msg.sender, totalSupply);
-        }
+        _safeMint(msg.sender, amount);
     }
 
     /* --------------- reveal --------------- */
@@ -197,17 +196,6 @@ contract MGTNFT is ERC721, Ownable {
 
     function setContractURI(string memory uri_) public onlyOwner {
         contractURI_ = uri_;
-    }
-
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 tokenId
-    ) internal override {
-        if (from == address(0)) {
-            totalSupply++;
-            require(totalSupply <= maxSupply, "suit sold out");
-        }
     }
 
     modifier callerIsUser() {
